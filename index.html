@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102a43">
+  <title>LogiTrack Express | Rastreo y operaciones</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#vista-cliente" aria-label="LogiTrack Express, inicio">
+      <span class="brand-mark" aria-hidden="true">LT</span>
+      <span class="brand-copy">
+        <strong>LogiTrack</strong>
+        <span>EXPRESS</span>
+      </span>
+    </a>
+
+    <nav class="view-tabs" aria-label="Seleccionar vista">
+      <button class="view-tab is-active" id="tab-cliente" type="button" role="tab" aria-selected="true" aria-controls="vista-cliente" data-view="cliente">Portal Rastreo <span>Cliente</span></button>
+      <button class="view-tab" id="tab-operador" type="button" role="tab" aria-selected="false" aria-controls="vista-operador" data-view="operador" tabindex="-1">Operador de Tráfico</button>
+    </nav>
+
+    <div class="header-status" aria-label="Estado del servicio">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Operación activa</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="view-panel" id="vista-cliente" role="tabpanel" aria-labelledby="tab-cliente" data-panel="cliente">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">SEGUIMIENTO EN TIEMPO REAL</p>
+          <h1>Tu envío, en camino.</h1>
+          <p>Consulta el recorrido y los detalles de tu paquete.</p>
+        </div>
+        <div class="tracking-search">
+          <label for="tracking-input">Número de guía</label>
+          <form id="tracking-form" role="search">
+            <input id="tracking-input" name="guia" type="search" placeholder="Ej. LTX-2048-7391" autocomplete="off" required>
+            <button type="submit">Rastrear envío</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="client-grid">
+        <section class="manifest-section" aria-labelledby="manifest-title">
+          <article class="manifest-card" id="manifest-card" aria-live="polite">
+            <div class="manifest-topline">
+              <div>
+                <p class="eyebrow">MANIFIESTO DE ENVÍO</p>
+                <h2 id="manifest-title">Guía <span id="manifest-guide">LTX-2048-7391</span></h2>
+              </div>
+              <span class="shipment-status" id="shipment-status" data-status="en-transito">En tránsito</span>
+            </div>
+            <dl class="manifest-details">
+              <div><dt>Origen</dt><dd id="shipment-origin">Ciudad de México</dd></div>
+              <div><dt>Destino</dt><dd id="shipment-destination">Guadalajara, JAL</dd></div>
+              <div><dt>Entrega estimada</dt><dd id="shipment-eta">Hoy, 16:30–19:00</dd></div>
+              <div><dt>PIN de recepción</dt><dd class="pin-value" id="shipment-pin">••••</dd></div>
+            </dl>
+            <div class="manifest-actions">
+              <button id="validate-pin-button" type="button">Validar PIN de entrega</button>
+              <button id="dispatch-label-button" type="button" class="button-secondary">Ver rótulo de despacho</button>
+            </div>
+          </article>
+
+          <section class="simulation-panel" aria-labelledby="simulation-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">MODO DEMOSTRACIÓN</p>
+                <h2 id="simulation-title">Simulación de recorrido</h2>
+              </div>
+              <button id="simulation-toggle" class="toggle-button" type="button" role="switch" aria-checked="false">Iniciar simulación</button>
+            </div>
+            <div class="simulation-controls">
+              <label for="simulation-shipment">Envío</label>
+              <select id="simulation-shipment" name="envio" aria-label="Envío para simular"></select>
+              <div class="simulation-speeds" role="group" aria-label="Velocidad de simulación">
+                <span>Velocidad</span>
+                <button class="simulation-speed-button is-active" type="button" data-simulation-speed="1" aria-pressed="true">1x</button>
+                <button class="simulation-speed-button" type="button" data-simulation-speed="3" aria-pressed="false">3x</button>
+                <button class="simulation-speed-button" type="button" data-simulation-speed="8" aria-pressed="false">8x</button>
+                <button class="simulation-speed-button" type="button" data-simulation-speed="16" aria-pressed="false">16x</button>
+              </div>
+              <button id="simulation-reset" class="button-text" type="button">Reiniciar recorrido</button>
+            </div>
+            <div class="simulation-progress-row">
+              <div class="progress-track" id="simulation-progress" role="progressbar" aria-label="Avance del recorrido" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span class="progress-bar" id="simulation-progress-bar"></span>
+              </div>
+              <output id="simulation-progress-value" for="simulation-progress">0%</output>
+            </div>
+          </section>
+
+          <section class="timeline-section" aria-labelledby="timeline-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">ACTUALIZACIONES</p>
+                <h2 id="timeline-title">Historial del envío</h2>
+              </div>
+            </div>
+            <div id="timeline-container">
+              <ol class="shipment-timeline" id="shipment-timeline" aria-live="polite"></ol>
+            </div>
+          </section>
+        </section>
+
+        <aside class="client-aside">
+          <section class="map-section" aria-labelledby="map-title">
+            <div class="section-heading map-heading">
+              <div><p class="eyebrow">UBICACIÓN DEL ENVÍO</p><h2 id="map-title">Mapa de ruta</h2></div>
+              <span class="map-live"><span class="status-dot" aria-hidden="true"></span>En vivo</span>
+            </div>
+            <div id="map-container" role="region" aria-label="Mapa con la ruta y ubicación del envío"></div>
+            <p class="map-caption" id="map-caption">Ruta Ciudad de México → Guadalajara</p>
+          </section>
+
+          <section class="quote-section" aria-labelledby="quote-title">
+            <p class="eyebrow">PLANIFICA TU ENVÍO</p>
+            <h2 id="quote-title">Cotizador de fletes</h2>
+            <form id="quote-form">
+              <label for="quote-origin">Ciudad de origen</label>
+              <input id="quote-origin" name="origen" type="text" placeholder="Ej. Ciudad de México" required>
+              <label for="quote-destination">Ciudad de destino</label>
+              <input id="quote-destination" name="destino" type="text" placeholder="Ej. Guadalajara" required>
+              <div class="quote-fields">
+                <div><label for="quote-weight">Peso (kg)</label><input id="quote-weight" name="peso" type="number" min="0.1" step="0.1" placeholder="1.0" required></div>
+                <div><label for="quote-service">Servicio</label><select id="quote-service" name="servicio"><option value="estandar">Estándar</option><option value="express">Express</option><option value="mismo-dia">Mismo día</option></select></div>
+              </div>
+              <button id="btn-calculate-quote" type="submit">Calcular tarifa</button>
+              <article class="quote-result-card" id="quote-result-card" aria-live="polite" hidden>
+                <div class="quote-result-heading">
+                  <div><p class="eyebrow">NIVEL DE SERVICIO</p><h3 id="quote-service-level"></h3></div>
+                  <strong class="quote-total" id="quote-total"></strong>
+                </div>
+                <dl class="quote-breakdown">
+                  <div><dt>Distancia por carretera</dt><dd id="quote-distance"></dd></div>
+                  <div><dt>Tarifa base</dt><dd id="quote-base-cost"></dd></div>
+                  <div><dt>Costo por distancia</dt><dd id="quote-distance-cost"></dd></div>
+                  <div><dt>Costo por peso</dt><dd id="quote-weight-cost"></dd></div>
+                </dl>
+                <output id="quote-result" class="quote-result-message"></output>
+              </article>
+            </form>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view-panel" id="vista-operador" role="tabpanel" aria-labelledby="tab-operador" data-panel="operador" hidden>
+      <div class="page-heading operator-heading">
+        <div><p class="eyebrow">CENTRO DE CONTROL</p><h1>Operador de Tráfico</h1><p>Supervisa envíos y administra la operación diaria.</p></div>
+        <span class="operator-date" id="operator-date">Miércoles, 30 de septiembre de 2026</span>
+      </div>
+
+      <section class="metrics-grid" aria-label="Métricas de operación">
+        <article class="metric-card"><p>Envíos activos</p><strong id="metric-active">128</strong><span class="metric-note">En ruta o preparación</span></article>
+        <article class="metric-card"><p>Entregados hoy</p><strong id="metric-delivered">86</strong><span class="metric-note">De 214 programados</span></article>
+        <article class="metric-card"><p>Incidencias</p><strong id="metric-incidents">07</strong><span class="metric-note">Requieren seguimiento</span></article>
+        <article class="metric-card"><p>Unidades en ruta</p><strong id="metric-vehicles">32</strong><span class="metric-note">Flota conectada</span></article>
+      </section>
+
+      <section class="shipment-form-section" id="shipment-form-section" aria-labelledby="shipment-form-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">GESTIÓN DE GUÍAS</p><h2 id="shipment-form-title">Alta / edición de envío</h2></div>
+          <span id="form-mode-label">Nuevo registro</span>
+        </div>
+        <form id="shipment-form">
+          <input id="shipment-record-id" name="id" type="hidden">
+          <div class="form-grid">
+            <div><label for="form-guide">Número de guía</label><input id="form-guide" name="guia" type="text" placeholder="LTX-2048-7391" required></div>
+            <div><label for="form-recipient">Destinatario</label><input id="form-recipient" name="destinatario" type="text" placeholder="Nombre completo" required></div>
+            <div><label for="form-origin">Origen</label><input id="form-origin" name="origen" type="text" placeholder="Ciudad de origen" required></div>
+            <div><label for="form-destination">Destino</label><input id="form-destination" name="destino" type="text" placeholder="Ciudad de destino" required></div>
+            <div><label for="form-status">Estado</label><select id="form-status" name="estado"><option value="preparacion">En preparación</option><option value="en-transito">En tránsito</option><option value="en-reparto">En reparto</option><option value="entregado">Entregado</option><option value="incidencia">Incidencia</option></select></div>
+            <div><label for="form-eta">Entrega estimada</label><input id="form-eta" name="entrega" type="datetime-local"></div>
+            <div><label for="form-pin">PIN de recepción</label><input id="form-pin" name="pin" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="4 dígitos" required></div>
+          </div>
+          <div class="form-actions"><button id="shipment-submit" type="submit">Guardar envío</button><button id="shipment-cancel-edit" class="button-secondary" type="reset">Limpiar formulario</button></div>
+        </form>
+      </section>
+
+      <section class="records-section" aria-labelledby="records-title">
+        <div class="section-heading records-heading">
+          <div><p class="eyebrow">VISTA GENERAL</p><h2 id="records-title">Registro de envíos</h2></div>
+          <label class="record-filter" for="records-filter"><span>Filtrar registros</span><input id="records-filter" type="search" placeholder="Guía, destinatario o ciudad" autocomplete="off"></label>
+        </div>
+        <div class="table-wrap">
+          <table id="shipments-table">
+            <thead><tr><th scope="col">Guía</th><th scope="col">Destinatario</th><th scope="col">Ruta</th><th scope="col">Estado</th><th scope="col">Entrega estimada</th><th scope="col"><span class="visually-hidden">Acciones</span></th></tr></thead>
+            <tbody id="shipments-table-body">
+              <tr><td data-label="Guía">LTX-2048-7391</td><td data-label="Destinatario">Mariana López</td><td data-label="Ruta">Ciudad de México → Guadalajara</td><td data-label="Estado"><span class="table-status is-transit">En tránsito</span></td><td data-label="Entrega estimada">30 sep, 16:30</td><td class="table-actions"><button type="button" class="edit-shipment-button" data-action="edit" data-guide="LTX-2048-7391">Editar</button><button type="button" class="label-shipment-button" data-action="label" data-guide="LTX-2048-7391">Rótulo</button></td></tr>
+              <tr><td data-label="Guía">LTX-2048-7392</td><td data-label="Destinatario">Carlos Méndez</td><td data-label="Ruta">Monterrey → Saltillo</td><td data-label="Estado"><span class="table-status is-delivered">Entregado</span></td><td data-label="Entrega estimada">30 sep, 11:20</td><td class="table-actions"><button type="button" class="edit-shipment-button" data-action="edit" data-guide="LTX-2048-7392">Editar</button><button type="button" class="label-shipment-button" data-action="label" data-guide="LTX-2048-7392">Rótulo</button></td></tr>
+              <tr><td data-label="Guía">LTX-2048-7393</td><td data-label="Destinatario">Ana Ruiz</td><td data-label="Ruta">Puebla → Veracruz</td><td data-label="Estado"><span class="table-status is-incident">Incidencia</span></td><td data-label="Entrega estimada">30 sep, 18:00</td><td class="table-actions"><button type="button" class="edit-shipment-button" data-action="edit" data-guide="LTX-2048-7393">Editar</button><button type="button" class="label-shipment-button" data-action="label" data-guide="LTX-2048-7393">Rótulo</button></td></tr>
+            </tbody>
+          </table>
+          <p class="table-empty" id="records-empty" hidden>No hay registros que coincidan con el filtro.</p>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog class="modal" id="pin-modal" aria-labelledby="pin-modal-title">
+    <form method="dialog" class="modal-dismiss-form"><button class="modal-close" type="submit" aria-label="Cerrar">×</button></form>
+    <div class="modal-content">
+      <p class="eyebrow">CONFIRMACIÓN DE ENTREGA</p>
+      <h2 id="pin-modal-title">Validar PIN</h2>
+      <p>Solicita al destinatario el PIN de 4 dígitos para confirmar la recepción.</p>
+      <form id="pin-validation-form">
+        <label for="pin-entry">PIN de recepción</label>
+        <input id="pin-entry" name="pin" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" placeholder="••••" required>
+        <p class="form-feedback" id="pin-feedback" role="status" aria-live="polite"></p>
+        <div class="modal-actions"><button type="submit">Confirmar entrega</button><button class="button-secondary" type="button" data-close-modal="pin-modal">Cancelar</button></div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="modal dispatch-modal" id="label-modal" aria-labelledby="dispatch-modal-title">
+    <form method="dialog" class="modal-dismiss-form"><button class="modal-close" type="submit" aria-label="Cerrar">×</button></form>
+    <div class="modal-content">
+      <div class="dispatch-label" id="dispatch-label">
+        <p class="eyebrow">LOGITRACK EXPRESS · DESPACHO</p>
+        <h2 id="dispatch-modal-title">Rótulo de envío</h2>
+        <div class="dispatch-code" id="dispatch-guide">LTX-2048-7391</div>
+        <dl><div><dt>Remitente</dt><dd id="dispatch-origin">Ciudad de México</dd></div><div><dt>Destinatario</dt><dd id="dispatch-recipient">Mariana López</dd></div><div><dt>Destino</dt><dd id="dispatch-destination">Guadalajara, JAL</dd></div><div><dt>Servicio</dt><dd id="dispatch-service">Express</dd></div></dl>
+        <div class="dispatch-pin">PIN de recepción <strong id="dispatch-pin">••••</strong></div>
+        <div class="dispatch-qr-wrap"><img id="label-qr" width="150" height="150" alt="Código QR del envío"></div>
+        <p class="dispatch-footer">Manipular con cuidado · LogiTrack Express</p>
+      </div>
+      <div class="modal-actions no-print"><button id="print-dispatch-label" type="button">Imprimir rótulo</button><button class="button-secondary" type="button" data-close-modal="label-modal">Cerrar</button></div>
+    </div>
+  </dialog>
+</body>
+</html>
